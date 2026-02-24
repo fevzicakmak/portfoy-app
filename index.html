@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobil Portföy</title>
+
+<style>
+*{box-sizing:border-box;}
+body{margin:0;font-family:Arial;background:#f2f4f7;}
+
+.header{
+    background:#1e88e5;
+    color:white;
+    padding:18px;
+    text-align:center;
+    font-size:22px;
+    font-weight:bold;
+}
+
+.container{padding:12px;}
+
+.card{
+    background:white;
+    padding:15px;
+    margin-bottom:12px;
+    border-radius:12px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.08);
+}
+
+label{font-size:16px;margin-top:10px;display:block;}
+
+input,select,button{
+    width:100%;
+    padding:12px;
+    margin-top:5px;
+    font-size:16px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+
+button{
+    background:#1e88e5;
+    color:white;
+    font-weight:bold;
+    border:none;
+    margin-top:12px;
+}
+
+.buy-row{color:red;font-weight:bold;}
+.sell-row{color:green;font-weight:bold;}
+.profit{color:green;font-weight:bold;}
+.loss{color:red;font-weight:bold;}
+
+.table-wrapper{
+    width:100%;
+    height:350px;
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:950px;
+}
+
+th,td{
+    padding:6px;
+    text-align:center;
+    border-bottom:1px solid #ddd;
+}
+
+th{background:#f0f0f0;}
+
+.live-price div{
+    font-size:16px;
+    margin-bottom:4px;
+}
+
+.up{color:green;font-weight:bold;}
+.down{color:red;font-weight:bold;}
+
+.modal{
+    position:fixed;
+    top:0;left:0;
+    width:100%;height:100%;
+    background:rgba(0,0,0,0.4);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:15px;
+}
+
+.modal-content{
+    background:white;
+    width:100%;
+    max-width:420px;
+    border-radius:12px;
+    padding:20px;
+}
+
+.modal-buttons{
+    margin-top:15px;
+    display:flex;
+    gap:10px;
+}
+
+.modal-buttons button{flex:1;}
+
+.delete-btn{background:#e53935;}
+.close-btn{background:#43a047;}
+</style>
+</head>
+<body>
+
+<div class="header">Portföy Takip</div>
+<div class="container">
+
+<!-- ANLIK FİYAT -->
+<div class="card">
+<div class="live-price">
+<div>Fiyat: <span id="livePrice">-</span></div>
+<div>Alış: <span id="liveBid">-</span></div>
+<div>Satış: <span id="liveAsk">-</span></div>
+<div>Değişim: <span id="liveChange">-</span></div>
+</div>
+</div>
+
+<!-- HİSSE SEÇ -->
+<div class="card">
+<label>BIST 100 Hisse Seç</label>
+<select id="stockSelect" onchange="changeStock()"></select>
+</div>
+
+<!-- İŞLEM -->
+<div class="card">
+<label>İşlem Türü</label>
+<select id="type">
+<option value="buy">Alış</option>
+<option value="sell">Satış</option>
+</select>
+
+<label>Tarih</label>
+<input type="date" id="date">
+
+<label>Lot</label>
+<input type="number" id="quantity">
+
+<label>Fiyat</label>
+<input type="number" id="price">
+
+<button onclick="addTransaction()">İşlem Ekle</button>
+</div>
+
+<!-- ÖZET -->
+<div class="card">
+<div>Mevcut Lot: <span id="currentPosition">0</span></div>
+<div>Alış Ortalaması: <span id="avgBuyPrice">0</span></div>
+<div>Satış Ortalaması: <span id="avgSellPrice">0</span></div>
+<div>Gerçekleşen Kar/Zarar: <span id="realizedProfit">0</span></div>
+</div>
+
+<!-- TABLO -->
+<div class="card">
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th>Tarih</th>
+<th>İşlem</th>
+<th>Lot</th>
+<th>Fiyat</th>
+<th>Alış Tutarı</th>
+<th>Satış Tutarı</th>
+<th>Alış Ortalama</th>
+<th>Satış Ortalama</th>
+</tr>
+</thead>
+<tbody id="transactionTable"></tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+<!-- MODAL -->
+<div class="modal" id="detailModal">
+<div class="modal-content">
+<div id="modalDetails"></div>
+<div class="modal-buttons">
+<button class="delete-btn" onclick="deleteTransaction()">Sil</button>
+<button class="close-btn" onclick="closeModal()">Tamam</button>
+</div>
+</div>
+</div>
+
+<script>
+const API_KEY="d6eli1pr01qloir71dk0d6eli1pr01qloir71dkg";
+
+const BIST100=[
+"THYAO","ASELS","TUPRS","KCHOL","SAHOL","AKBNK","ISCTR","YKBNK","GARAN","SISE",
+"EREGL","BIMAS","FROTO","TOASO","KOZAL","PETKM","PGSUS","TCELL","HEKTS","SASA",
+"ENJSA","ENKAI","ALARK","ARCLK","VAKBN","HALKB","CCOLA","DOHOL","GUBRF","KRDMD",
+"ODAS","OYAKC","TRGYO","TSKB","ULKER","VESBE","ZOREN","AKSEN","BRSAN","CIMSA",
+"DEVA","EGEEN","GENIL","GESAN","GLYHO","GOZDE","ISGYO","ISMEN","KARSN","KONTR",
+"KORDS","LOGO","MGROS","NETAS","OTKAR","PENTA","QUAGR","SOKM","TAVHL","TKFEN",
+"TTKOM","TTRAK","TURSG","VESTL","YATAS","ZRGYO","AEFES","AGHOL","AKSA","AKSEN",
+"ANSGR","BAGFS","BRISA","CANTE","DOAS","ECILC","EKGYO","ESEN","GWIND","INDES",
+"JANTS","KAREL","KARTN","KERVT","KLKIM","MAVI","NTHOL","NUHCM","PARSN","SELEC",
+"SMRTG","SNGYO","SUNTK","TATGD","TEZOL","TUKAS","TURKB","YUNSA","YYLGD","ZEDUR"
+];
+
+let portfolio={};
+let currentStock=null;
+let selectedIndex=null;
+let priceInterval=null;
+
+/* STORAGE */
+function loadStorage(){
+    try{
+        let data=localStorage.getItem("portfolio");
+        portfolio=data?JSON.parse(data):{};
+    }catch(e){portfolio={};}
+}
+function save(){
+    try{localStorage.setItem("portfolio",JSON.stringify(portfolio));}
+    catch(e){}
+}
+
+/* FORMAT */
+function formatInt(n){return Number(n).toLocaleString("tr-TR",{maximumFractionDigits:0});}
+function formatFloat(n){return Number(n).toLocaleString("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+/* BIST DOLDUR */
+function loadBist(){
+    let select=document.getElementById("stockSelect");
+    BIST100.forEach(s=>{
+        let opt=document.createElement("option");
+        opt.value=s;
+        opt.textContent=s;
+        select.appendChild(opt);
+        if(!portfolio[s])portfolio[s]={transactions:[]};
+    });
+    currentStock=select.value;
+    startPriceUpdates(currentStock);
+    render();
+}
+
+/* FİYAT ÇEK */
+async function fetchPrice(symbol){
+    try{
+        const res=await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}.IS&token=${API_KEY}`);
+        const d=await res.json();
+        if(!d.c)return;
+        document.getElementById("livePrice").innerText=d.c.toFixed(2);
+        document.getElementById("liveBid").innerText=d.b.toFixed(2);
+        document.getElementById("liveAsk").innerText=d.a.toFixed(2);
+        let ch=document.getElementById("liveChange");
+        ch.innerText=d.dp.toFixed(2)+"%";
+        ch.className=d.dp>=0?"up":"down";
+    }catch(e){}
+}
+function startPriceUpdates(symbol){
+    if(priceInterval)clearInterval(priceInterval);
+    fetchPrice(symbol);
+    priceInterval=setInterval(()=>fetchPrice(symbol),10000);
+}
+
+function changeStock(){
+    currentStock=document.getElementById("stockSelect").value;
+    startPriceUpdates(currentStock);
+    render();
+}
+
+/* İŞLEM EKLE */
+function addTransaction(){
+    let date=document.getElementById("date").value;
+    let type=document.getElementById("type").value;
+    let qty=parseFloat(document.getElementById("quantity").value);
+    let price=parseFloat(document.getElementById("price").value);
+    if(!date||!qty||!price)return alert("Eksik bilgi");
+    portfolio[currentStock].transactions.push({date,type,qty,price});
+    save();render();
+}
+
+/* RENDER */
+function render(){
+    let transactions=portfolio[currentStock].transactions;
+    let table=document.getElementById("transactionTable");
+    table.innerHTML="";
+
+    let runningQty=0,runningCost=0;
+    let buyQty=0,buyCost=0;
+    let sellQty=0,sellTotal=0;
+    let realizedProfit=0;
+
+    transactions.forEach((t,i)=>{
+        let row=table.insertRow();
+        row.className=t.type==="buy"?"buy-row":"sell-row";
+        row.onclick=()=>showDetails(i);
+
+        row.insertCell(0).innerText=t.date;
+        row.insertCell(1).innerText=t.type==="buy"?"Alış":"Satış";
+        row.insertCell(2).innerText=formatInt(t.qty);
+        row.insertCell(3).innerText=formatInt(t.price);
+
+        let buyAmount="-",sellAmount="-",buyAvg="-",sellAvg="-";
+
+        if(t.type==="buy"){
+            buyQty+=t.qty; buyCost+=t.qty*t.price;
+            runningQty+=t.qty; runningCost+=t.qty*t.price;
+            buyAmount=formatInt(t.qty*t.price);
+            buyAvg=formatInt(buyCost/buyQty);
+        }else{
+            sellQty+=t.qty; sellTotal+=t.qty*t.price;
+            if(t.qty<=runningQty){
+                let avg=runningCost/runningQty;
+                realizedProfit+=(t.price-avg)*t.qty;
+                runningCost-=avg*t.qty;
+                runningQty-=t.qty;
+            }
+            sellAmount=formatInt(t.qty*t.price);
+            sellAvg=formatInt(sellTotal/sellQty);
+        }
+
+        row.insertCell(4).innerText=buyAmount;
+        row.insertCell(5).innerText=sellAmount;
+        row.insertCell(6).innerText=buyAvg;
+        row.insertCell(7).innerText=sellAvg;
+    });
+
+    document.getElementById("currentPosition").innerText=formatInt(runningQty);
+    document.getElementById("avgBuyPrice").innerText=buyQty?formatInt(buyCost/buyQty):"0";
+    document.getElementById("avgSellPrice").innerText=sellQty?formatInt(sellTotal/sellQty):"0";
+    document.getElementById("realizedProfit").innerText=formatInt(realizedProfit);
+}
+
+/* MODAL */
+function showDetails(i){
+    selectedIndex=i;
+    let t=portfolio[currentStock].transactions[i];
+    document.getElementById("modalDetails").innerHTML=
+    "<h3>İşlem Detayı</h3>"+
+    "<p><b>Tarih:</b> "+t.date+"</p>"+
+    "<p><b>Tür:</b> "+(t.type==="buy"?"Alış":"Satış")+"</p>"+
+    "<p><b>Lot:</b> "+formatFloat(t.qty)+"</p>"+
+    "<p><b>Fiyat:</b> "+formatFloat(t.price)+"</p>";
+    document.getElementById("detailModal").style.display="flex";
+}
+function closeModal(){document.getElementById("detailModal").style.display="none";}
+function deleteTransaction(){
+    if(confirm("Silmek istediğinize emin misiniz?")){
+        portfolio[currentStock].transactions.splice(selectedIndex,1);
+        save();render();closeModal();
+    }
+}
+
+/* INIT */
+loadStorage();
+loadBist();
+</script>
+
+</body>
+</html>
