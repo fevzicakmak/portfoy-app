@@ -250,16 +250,18 @@ function loadBist(){
 /* FİYAT ÇEK */
 async function fetchPrice(symbol){
     try{
-        const res=await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}.IS&token=${API_KEY}`);
+        const res=await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.IS`);
         const d=await res.json();
-        if(!d.c)return;
-        document.getElementById("livePrice").innerText=d.c.toFixed(2);
-        document.getElementById("liveBid").innerText=d.b.toFixed(2);
-        document.getElementById("liveAsk").innerText=d.a.toFixed(2);
+        const.quote=data.quoteResponse.result[0];
+        if(quote)return;
+        document.getElementById("livePrice").innerText=quote.regulerMarketPrice?.toFixed(2)||"-";
+        document.getElementById("liveBid").innerText=quote.bid?.toFixed(2)||"-";
+        document.getElementById("liveAsk").innerText=quote.ask?.toFixed(2)||"-";
+        let change=quote.regulerMarketChangePercent|| 0;
         let ch=document.getElementById("liveChange");
-        ch.innerText=d.dp.toFixed(2)+"%";
-        ch.className=d.dp>=0?"up":"down";
-    }catch(e){}
+        ch.innerText=change.toFixed(2)+"%";
+        ch.className=change>=0?"up":"down";
+    }catch(e){console.log("veri alınamadı")}
 }
 function startPriceUpdates(symbol){
     if(priceInterval)clearInterval(priceInterval);
